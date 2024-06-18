@@ -1,9 +1,6 @@
 import os
 import csv
-from pubchempy import *
 import numpy as np
-import numbers
-import h5py
 import math
 import pandas as pd
 import json,pickle
@@ -139,7 +136,7 @@ def one_of_k_encoding_unk(x, allowable_set):
     return list(map(lambda s: x == s, allowable_set))
 
 def smile_to_graph(smile):
-    mol = Chem.MolFromSmiles(smile)
+    mol = Chem.MolFromSequence(smile)
     
     c_size = mol.GetNumAtoms()
     
@@ -159,7 +156,7 @@ def smile_to_graph(smile):
     return c_size, features, edge_index
 
 def load_drug_smile():
-    reader = csv.reader(open(folder + "drug_smiles.csv"))
+    reader = csv.reader(open(folder + "scaledFinalAMPDescriptorsData.csv"))
     next(reader, None)
 
     drug_dict = {}
@@ -167,20 +164,30 @@ def load_drug_smile():
 
     for item in reader:
         name = item[0]
-        smile = item[2]
+        smile = item[1]
 
-        if name in drug_dict:
-            pos = drug_dict[name]
-        else:
+        try:
+            mol = Chem.MolFromSequence(smile)
+            c_size = mol.GetNumAtoms()
             pos = len(drug_dict)
             drug_dict[name] = pos
-        drug_smile.append(smile)
+            drug_smile.append(smile)
+        except:
+            print("Invalid molecule: ",smile)
     
     smile_graph = {}
+    exceptionCases=0
+    print("Converting to grpahs!")
     for smile in drug_smile:
-        g = smile_to_graph(smile)
+        print(smile)
+        try:
+            g = smile_to_graph(smile)
+        except:
+            print("Exception ===============================================")
+            exceptionCases+=1
+            g = (0,[],[])
         smile_graph[smile] = g
-    
+    print("Exception count: ", exceptionCases)
     return drug_dict, drug_smile, smile_graph
 
 def save_cell_mut_matrix():
@@ -226,22 +233,25 @@ def save_cell_mut_matrix():
 This part is used to extract the drug - cell interaction strength. it contains IC50, AUC, Max conc, RMSE, Z_score
 """
 def save_mix_drug_cell_matrix():
-    f = open(folder + "PANCANCER_IC.csv")
+    f = open(folder + "scaledFinalAMPDescriptorsData.csv")
     reader = csv.reader(f)
     next(reader)
 
-    cell_dict, cell_feature = save_cell_mut_matrix()
+    print("Reading files...")
+
+    # cell_dict, cell_feature = save_cell_mut_matrix()
     drug_dict, drug_smile, smile_graph = load_drug_smile()
 
     temp_data = []
-    bExist = np.zeros((len(drug_dict), len(cell_dict)))
+    # bExist = np.zeros((len(drug_dict), len(cell_dict)))
 
     for item in reader:
         drug = item[0]
-        cell = item[3]
-        ic50 = item[8]
-        ic50 = 1 / (1 + pow(math.exp(float(ic50)), -0.1))
+        cell = [float(i) if i!='' or np.isnan(i) else 0 for i in item[3:]]
+        ic50 = int(float(item[2]))
         temp_data.append((drug, cell, ic50))
+        if(torch.Tensor(cell).isinf().any().data):
+            print(drug,ic50,cell)
 
     xd = []
     xc = []
@@ -251,11 +261,11 @@ def save_mix_drug_cell_matrix():
     random.shuffle(temp_data)
     for data in temp_data:
         drug, cell, ic50 = data
-        if drug in drug_dict and cell in cell_dict:
+        if drug in drug_dict:
             xd.append(drug_smile[drug_dict[drug]])
-            xc.append(cell_feature[cell_dict[cell]])
+            xc.append(cell)
             y.append(ic50)
-            bExist[drug_dict[drug], cell_dict[cell]] = 1
+            # bExist[drug_dict[drug], cell_dict[cell]] = 1
             lst_drug.append(drug)
             lst_cell.append(cell)
         
@@ -285,7 +295,7 @@ def save_mix_drug_cell_matrix():
     y_val = y[size:size1]
     y_test = y[size1:]
 
-    dataset = 'GDSC'
+    dataset = 'dPAABs_scaled_all'
     print('preparing ', dataset + '_train.pt in pytorch format!')
 
     train_data = TestbedDataset(root='data', dataset=dataset+'_train_mix', xd=xd_train, xt=xc_train, y=y_train, smile_graph=smile_graph)

@@ -11,12 +11,14 @@ from models.ginconv import GINConvNet
 from utils import *
 import datetime
 import argparse
+from sklearn.metrics import accuracy_score
+
 
 # training function at each epoch
 def train(model, device, train_loader, optimizer, epoch, log_interval):
-    print('Training on {} samples...'.format(len(train_loader.dataset)))
+    
     model.train()
-    loss_fn = nn.MSELoss()
+    loss_fn = nn.BCELoss()
     avg_loss = []
     for batch_idx, data in enumerate(train_loader):
         data = data.to(device)
@@ -27,10 +29,10 @@ def train(model, device, train_loader, optimizer, epoch, log_interval):
         optimizer.step()
         avg_loss.append(loss.item())
         if batch_idx % log_interval == 0:
-            print('Train epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(epoch,
+            print('Train epoch: {} [{}/{} ({:.2f}%)]\tLoss: {:.6f}'.format(epoch,
                                                                            batch_idx * len(data.x),
                                                                            len(train_loader.dataset),
-                                                                           100. * batch_idx / len(train_loader),
+                                                                           (100. * batch_idx) / len(train_loader),
                                                                            loss.item()))
     return sum(avg_loss)/len(avg_loss)
 
@@ -38,7 +40,7 @@ def predicting(model, device, loader):
     model.eval()
     total_preds = torch.Tensor()
     total_labels = torch.Tensor()
-    print('Make prediction for {} samples...'.format(len(loader.dataset)))
+    # print('Make prediction for {} samples...'.format(len(loader.dataset)))
     with torch.no_grad():
         for data in loader:
             data = data.to(device)
@@ -53,7 +55,7 @@ def main(modeling, train_batch, val_batch, test_batch, lr, num_epoch, log_interv
     print('Epochs: ', num_epoch)
 
     model_st = modeling.__name__
-    dataset = 'GDSC'
+    dataset = 'dPAABs_scaled_all'
     train_losses = []
     val_losses = []
     val_pearsons = []
@@ -86,6 +88,7 @@ def main(modeling, train_batch, val_batch, test_batch, lr, num_epoch, log_interv
         result_file_name = 'result_' + model_st + '_' + dataset +  '.csv'
         loss_fig_name = 'model_' + model_st + '_' + dataset + '_loss'
         pearson_fig_name = 'model_' + model_st + '_' + dataset + '_pearson'
+        print('Training on {} samples...'.format(len(train_loader.dataset)))
         for epoch in range(num_epoch):
             train_loss = train(model, device, train_loader, optimizer, epoch+1, log_interval)
             G,P = predicting(model, device, val_loader)
@@ -107,7 +110,11 @@ def main(modeling, train_batch, val_batch, test_batch, lr, num_epoch, log_interv
                 best_pearson = ret[2]
                 print(' rmse improved at epoch ', best_epoch, '; best_mse:', best_mse,model_st,dataset)
             else:
-                print(' no improvement since epoch ', best_epoch, '; best_mse, best pearson:', best_mse, best_pearson, model_st, dataset)
+                # print(' no improvement since epoch ', best_epoch, '; best_mse, best pearson:', best_mse, best_pearson, model_st, dataset)
+                pass
+        G_test,P_test = predicting(model, device, test_loader)
+        acc=accuracy_score(G_test, P_test.round())
+        print("Accuracy score on Test data: ",acc)
         draw_loss(train_losses, val_losses, loss_fig_name)
         draw_pearson(val_pearsons, pearson_fig_name)
 
@@ -117,8 +124,8 @@ if __name__ == "__main__":
     parser.add_argument('--train_batch', type=int, required=False, default=1024,  help='Batch size training set')
     parser.add_argument('--val_batch', type=int, required=False, default=1024, help='Batch size validation set')
     parser.add_argument('--test_batch', type=int, required=False, default=1024, help='Batch size test set')
-    parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--num_epoch', type=int, required=False, default=300, help='Number of epoch')
+    parser.add_argument('--lr', type=float, required=False, default=1e-3, help='Learning rate')
+    parser.add_argument('--num_epoch', type=int, required=False, default=350, help='Number of epoch')
     parser.add_argument('--log_interval', type=int, required=False, default=20, help='Log interval')
     parser.add_argument('--cuda_name', type=str, required=False, default="cuda:0", help='Cuda')
 

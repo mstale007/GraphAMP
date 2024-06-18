@@ -1,6 +1,15 @@
-# Resources:
-+ README.md: this file.
-+ data: GDSC dataset
+# GraphAMP: Antimicrobial peptide prediction using combination of structural and molecular properties
+## Graph Construction
+![alt](images/img1.png)
+
+## Node Features
+![alt](images/img2.png)
+
+## Graph Convolution
+![alt](images/img3.png)
+
+# Architecture
+![alt](images/img4.png)
 
 ###  source codes:
 + preprocess.py: create data in pytorch format
@@ -25,11 +34,6 @@
 ```sh
 python preprocess.py --choice 0
 ```
-choice:
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;0: create mixed test dataset
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1: create saliency map dataset
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2: create blind drug dataset
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3: create blind cell dataset
 
 This returns file pytorch format (.pt) stored at data/processed including training, validation, test set.
 
@@ -47,8 +51,4 @@ To train a model using training data. The model is chosen if it gains the best M
 
 This returns the model and result files for the modelling achieving the best MSE for testing data throughout the training.
 
-## 3. Get saliency value 
-```sh
-python saliency_map.py --model 0 --num_feature 10 --processed_data_file "data/processed/GDSC_bortezomib.pt" --model_file "model_GINConvNet_GDSC.model" --cuda_name "cuda:0"
-```
-The model and model_file must be the same kind of graph neural network. This outputs most important abberations with corresponding saliency value.
+# Credits
